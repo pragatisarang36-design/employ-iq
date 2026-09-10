@@ -19,7 +19,7 @@ services:
     build:
       context: ./backend
       dockerfile: ../infrastructure/docker/backend.Dockerfile
-    command: sh -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    command: sh -c "python manage.py migrate && python manage.py seed_careers && python manage.py seed_knowledge && python manage.py runserver 0.0.0.0:8000"
     env_file: .env
     environment:
       POSTGRES_HOST: db
