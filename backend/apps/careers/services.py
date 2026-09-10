@@ -25,3 +25,11 @@ def create_gap_analysis(*, student, role, prediction_run=None):
                          "current_level": current or "not_started", "target_level": benchmark.target_level,
                          "priority": benchmark.priority, "rationale": benchmark.rationale})
     return SkillGapSnapshot.objects.create(student=student, role=role, prediction_run=prediction_run, gaps=gaps)
+
+
+def role_alignment(*, student, role):
+    benchmarks = list(role.benchmarks.select_related("skill"))
+    levels = {item.skill_id: LEVEL_SCORE[item.proficiency] for item in student.skills.all()}
+    matched = [benchmark for benchmark in benchmarks if levels.get(benchmark.skill_id, 0) >= LEVEL_SCORE[benchmark.target_level]]
+    score = round(100 * len(matched) / len(benchmarks), 2) if benchmarks else 0
+    return {"role": role, "alignment_score": score, "relevant_skills": [item.skill.name for item in matched], "missing_skills": [item.skill.name for item in benchmarks if item not in matched], "confidence": "high" if len(benchmarks) >= 4 else "starter"}

@@ -4,7 +4,8 @@ from django.db import transaction
 
 from apps.accounts.services import record_audit_event
 from apps.students.services import build_feature_snapshot
-from ml.inference import ARTIFACT_PATH, load_active_artifact, predict
+from ml.inference import ARTIFACT_PATH, load_active_artifact
+from ml.client import predict
 
 from .models import ModelVersion, PredictionExplanation, PredictionRun
 
@@ -25,7 +26,7 @@ def create_prediction(*, student, actor):
     snapshot = build_feature_snapshot(student)
     result = predict(snapshot)
     model = get_or_register_active_model()
-    run = PredictionRun.objects.create(student=student, model_version=model, probability=Decimal(str(result["probability"])),
+    run = PredictionRun.objects.create(student=student, model_version=model, probability=Decimal(str(result["probability"])), baseline_probability=Decimal(str(result["baseline_probability"])),
         readiness=result["readiness"], input_snapshot=snapshot)
     PredictionExplanation.objects.bulk_create([
         PredictionExplanation(prediction_run=run, feature_key=item["feature_key"], shap_value=Decimal(str(item["shap_value"])),

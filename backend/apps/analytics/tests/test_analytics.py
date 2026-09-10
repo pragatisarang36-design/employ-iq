@@ -1,4 +1,5 @@
 from rest_framework.test import APITestCase
+from django.core.files.uploadedfile import SimpleUploadedFile
 from apps.accounts.models import Institution, User, UserRole
 from apps.careers.models import CareerRole, RoleSkillBenchmark
 from apps.rag.models import KnowledgeDocument
@@ -41,6 +42,7 @@ class AnalyticsApiTests(APITestCase):
         self.assertEqual(self.client.get("/api/v1/students/me/feature-snapshot/").status_code, 200)
         self.assertEqual(self.client.post("/api/v1/predictions/", {}, format="json").status_code, 201)
         self.assertEqual(self.client.get("/api/v1/careers/roles/e2e-backend/gap-analysis/").status_code, 200)
+        self.assertEqual(self.client.get("/api/v1/careers/roles/e2e-backend/alignment/").status_code, 200)
         self.assertEqual(self.client.post("/api/v1/roadmaps/", {"role_slug": "e2e-backend"}, format="json").status_code, 201)
         copilot = self.client.post("/api/v1/copilot/ask/", {"question": "What should I improve for backend development?", "role_slug": "e2e-backend"}, format="json")
         self.assertEqual(copilot.status_code, 200)
@@ -48,3 +50,12 @@ class AnalyticsApiTests(APITestCase):
         dashboard = self.client.get("/api/v1/dashboard/")
         self.assertEqual(dashboard.status_code, 200)
         self.assertIsNotNone(dashboard.data["prediction"])
+
+    def test_student_can_import_single_profile_csv(self):
+        institution = Institution.objects.create(name="CSV Demo", slug="csv-demo")
+        user = User.objects.create_user(email="csv@demo.edu", password="Password123!", institution=institution, role=UserRole.STUDENT)
+        self.client.force_authenticate(user)
+        upload = SimpleUploadedFile("profile.csv", b"cgpa,aptitude_score,skills\n8.5,77,\n", content_type="text/csv")
+        response = self.client.post("/api/v1/students/me/import-csv/", {"file": upload}, format="multipart")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertIn("cgpa", response.data["updated_profile_fields"])

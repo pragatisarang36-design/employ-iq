@@ -24,6 +24,7 @@ services:
     environment:
       POSTGRES_HOST: db
       DJANGO_SETTINGS_MODULE: config.settings.development
+      AI_SERVICE_URL: http://ai:8001
     ports:
       - "8000:8000"
     volumes:
@@ -31,6 +32,17 @@ services:
     depends_on:
       db:
         condition: service_healthy
+
+  ai:
+    build:
+      context: ./backend
+      dockerfile: ../infrastructure/docker/backend.Dockerfile
+    command: sh -c "python -m ml.training.train && uvicorn ai_service.main:app --host 0.0.0.0 --port 8001"
+    env_file: .env
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./backend:/app
 
   frontend:
     build:

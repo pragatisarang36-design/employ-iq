@@ -14,6 +14,8 @@ DOCS = [
  ("Data Analyst Learning Path", "data-analyst", "learning", "Begin with spreadsheets and SQL, add Python pandas for repeatable analysis, then learn Power BI or Tableau. Publish two compact portfolios with a question, method, finding, and recommendation."),
  ("Communication for Interviews", None, "communication", "Use a concise STAR structure: situation, task, action, result. Record a two-minute explanation of a project and replace jargon with the user problem, your contribution, and measurable outcome."),
  ("Study and Practice Habits", None, "study", "Choose one high-priority gap per week, practise in short focused blocks, and finish with a visible artifact such as a solved SQL set, Git commit, mock interview reflection, or project feature."),
+ ("Cloud DevOps Starter Path", "cloud-devops", "learning", "Learn Linux and Git fundamentals, containerize a small Python service with Docker, then deploy it to a cloud sandbox. Document the deployment and monitoring decisions."),
+ ("QA Engineering Starter Path", "qa-engineer", "learning", "Start with test design, bug reports, and API testing. Add automated unit and API tests to a small application and explain the coverage and risk trade-offs."),
 ]
 
 class Command(BaseCommand):

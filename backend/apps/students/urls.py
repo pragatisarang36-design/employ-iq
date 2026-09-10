@@ -10,6 +10,7 @@ from .views import (
     StudentExperienceListCreateView,
     StudentFeatureSnapshotView,
     StudentMeProfileView,
+    StudentProfileCsvImportView,
     StudentSkillListCreateView,
 )
 
@@ -19,5 +20,6 @@ urlpatterns = [
     path("students/me/skills/", StudentSkillListCreateView.as_view(), name="student_skills"),
     path("students/me/certifications/", StudentCertificationListCreateView.as_view(), name="student_certifications"),
     path("students/me/experiences/", StudentExperienceListCreateView.as_view(), name="student_experiences"),
+    path("students/me/import-csv/", StudentProfileCsvImportView.as_view(), name="student_profile_csv_import"),
     path("students/<uuid:student_id>/profile/", StudentDetailForStaffView.as_view(), name="student_detail_staff"),
 ]

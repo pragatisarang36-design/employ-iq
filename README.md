@@ -40,6 +40,14 @@ python manage.py runserver
 ```
 
 ```powershell
+# AI/ML service (a second backend terminal)
+cd backend
+..\.venv\Scripts\Activate.ps1
+python -m ml.training.train
+uvicorn ai_service.main:app --host 0.0.0.0 --port 8001
+```
+
+```powershell
 # Frontend (a second terminal)
 cd frontend
 npm install
@@ -60,8 +68,9 @@ Services are available on PostgreSQL `5432`, API `8000`, and frontend `5173`. Th
 ## Demo APIs
 
 - Student: `/api/v1/students/me/profile/`, `/api/v1/assessments/`, `/api/v1/predictions/`, `/api/v1/careers/roles/`, `/api/v1/roadmaps/`, `/api/v1/copilot/ask/`.
-- TPO/Admin: `/api/v1/analytics/overview/` and `/api/v1/analytics/interventions/`.
-- Copilot responses are grounded in ten seeded curated documents and include citations. A Gemini provider can be added later without changing this API contract.
+- TPO/Admin: `/api/v1/analytics/overview/`, `/api/v1/analytics/interventions/`, `/api/v1/analytics/departments/`, and `/api/v1/analytics/skills/`.
+- The internal FastAPI service exposes `/health`, `/predict`, `/predict/explain`, `/role-alignment`, `/skill-gaps`, `/roadmap`, and `/copilot/ask`. Django remains the public API and PostgreSQL data owner.
+- Copilot answers retrieve curated sources first, then use Gemini when `GEMINI_API_KEY` is configured; a cited deterministic fallback remains available when Gemini is unavailable.
 
 ## Structure
 

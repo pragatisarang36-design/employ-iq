@@ -33,7 +33,10 @@ def grounded_answer(question, sources):
         query_tokens = set(_tokens(question))
         best = max(sentences, key=lambda sentence: len(query_tokens.intersection(_tokens(sentence))), default=document.content)
         excerpts.append(f"**{document.title}:** {best}")
-    return "Based on the curated EmployIQ guidance:\n\n" + "\n\n".join(excerpts) + "\n\nUse these as a focused next step; your readiness score remains separate from this guidance."
+    fallback = "Based on the curated EmployIQ guidance:\n\n" + "\n\n".join(excerpts) + "\n\nUse these as a focused next step; your readiness score remains separate from this guidance."
+    from .gemini import generate_grounded_answer
+    generated = generate_grounded_answer(question, "\n\n".join(excerpts))
+    return generated or fallback
 
 
 @transaction.atomic

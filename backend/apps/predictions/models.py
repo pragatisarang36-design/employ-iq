@@ -26,6 +26,7 @@ class PredictionRun(models.Model):
     student = models.ForeignKey("students.StudentProfile", on_delete=models.CASCADE, related_name="prediction_runs")
     model_version = models.ForeignKey(ModelVersion, on_delete=models.PROTECT, related_name="prediction_runs")
     probability = models.DecimalField(max_digits=5, decimal_places=4)
+    baseline_probability = models.DecimalField(max_digits=5, decimal_places=4, null=True, blank=True)
     readiness = models.CharField(max_length=30, choices=Readiness.choices)
     input_snapshot = models.JSONField()
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)

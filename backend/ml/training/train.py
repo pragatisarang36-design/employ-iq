@@ -8,7 +8,7 @@ from pathlib import Path
 
 import joblib
 import pandas as pd
-from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
+from lightgbm import LGBMClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
 from sklearn.model_selection import train_test_split
@@ -72,20 +72,17 @@ def main():
     y = (frame["placement_status"] == "Placed").astype(int)
     x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=42, stratify=y)
     candidates = {
+        "lightgbm": LGBMClassifier(n_estimators=120, learning_rate=0.05, num_leaves=15, min_child_samples=12, random_state=42, n_jobs=1, verbosity=-1),
         "logistic_regression": Pipeline([("scaler", StandardScaler()), ("classifier", LogisticRegression(max_iter=2000, random_state=42))]),
-        "random_forest": RandomForestClassifier(n_estimators=75, min_samples_leaf=4, n_jobs=-1, random_state=42),
-        "gradient_boosting": GradientBoostingClassifier(n_estimators=75, random_state=42),
     }
     results = {name: metrics_for(model, x_train, x_test, y_train, y_test) for name, model in candidates.items()}
-    # Prefer the explainable linear model when its ROC-AUC remains competitive (within 0.02).
-    best_auc = max(result["metrics"]["roc_auc"] for result in results.values())
-    selected_name = "logistic_regression" if results["logistic_regression"]["metrics"]["roc_auc"] >= best_auc - 0.02 else max(results, key=lambda name: results[name]["metrics"]["roc_auc"])
-    if selected_name != "logistic_regression":
-        raise RuntimeError("Dataset selected a non-linear model; update inference explainability before promotion.")
+    # The documented production candidate is LightGBM; metrics for the logistic
+    # baseline remain in the artifact for transparent comparison.
+    selected_name = "lightgbm"
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    artifact = {"version": "placement-readiness-v1", "algorithm": selected_name, "feature_schema_version": FEATURE_SCHEMA_VERSION, "feature_names": list(FEATURE_NAMES), "pipeline": results[selected_name]["model"], "metrics": {name: result["metrics"] for name, result in results.items()}, "dataset_checksum": checksum, "trained_at": datetime.now(timezone.utc).isoformat()}
+    artifact = {"version": "placement-readiness-lightgbm-v2", "algorithm": selected_name, "primary_model": results[selected_name]["model"], "baseline_model": results["logistic_regression"]["model"], "feature_schema_version": FEATURE_SCHEMA_VERSION, "feature_names": list(FEATURE_NAMES), "metrics": {name: result["metrics"] for name, result in results.items()}, "dataset_checksum": checksum, "trained_at": datetime.now(timezone.utc).isoformat()}
     joblib.dump(artifact, args.output_dir / "placement_readiness_v1.joblib")
-    (args.output_dir / "metrics.json").write_text(json.dumps({key: value for key, value in artifact.items() if key != "pipeline"}, indent=2), encoding="utf-8")
+    (args.output_dir / "metrics.json").write_text(json.dumps({key: value for key, value in artifact.items() if key not in {"primary_model", "baseline_model"}}, indent=2), encoding="utf-8")
     print(json.dumps({"selected": selected_name, "metrics": artifact["metrics"]}, indent=2))
 
 

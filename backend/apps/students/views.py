@@ -3,6 +3,9 @@ Views for student profile and feature snapshot extraction.
 Conforming to API_SPECIFICATION.md.
 """
 
+import csv
+from io import TextIOWrapper
+
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -27,6 +30,7 @@ from .services import (
     get_or_create_student_profile,
     update_student_profile,
 )
+from .models import Skill
 
 
 class StudentMeProfileView(APIView):
@@ -115,6 +119,35 @@ class StudentExperienceListCreateView(APIView):
         serializer.is_valid(raise_exception=True)
         experience = add_student_experience(profile=get_or_create_student_profile(request.user), **serializer.validated_data)
         return Response(StudentExperienceSerializer(experience).data, status=status.HTTP_201_CREATED)
+
+
+class StudentProfileCsvImportView(APIView):
+    """Small, ownership-safe CSV import for a student's own profile and skills."""
+    permission_classes = [IsStudent]
+
+    def post(self, request):
+        upload = request.FILES.get("file")
+        if not upload or not upload.name.lower().endswith(".csv"):
+            return Response({"code": "validation_error", "message": "Upload one CSV file."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            rows = list(csv.DictReader(TextIOWrapper(upload.file, encoding="utf-8-sig")))
+        except UnicodeDecodeError:
+            return Response({"code": "validation_error", "message": "CSV must be UTF-8 encoded."}, status=status.HTTP_400_BAD_REQUEST)
+        if len(rows) != 1:
+            return Response({"code": "validation_error", "message": "Student import requires exactly one data row."}, status=status.HTTP_400_BAD_REQUEST)
+        row = rows[0]
+        allowed = StudentProfileUpdateSerializer.ALLOWED_FIELDS
+        data = {key: value for key, value in row.items() if key in allowed and value not in (None, "")}
+        serializer = StudentProfileUpdateSerializer(data=data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        profile = update_student_profile(profile=get_or_create_student_profile(request.user), data=serializer.validated_data, actor=request.user)
+        imported_skills = []
+        for canonical_key in filter(None, (item.strip().lower().replace(" ", "-") for item in row.get("skills", "").split(";"))):
+            skill = Skill.objects.filter(canonical_key=canonical_key).first()
+            if skill:
+                add_or_update_student_skill(profile=profile, skill=skill)
+                imported_skills.append(skill.name)
+        return Response({"updated_profile_fields": list(serializer.validated_data), "imported_skills": imported_skills, "invalid_rows": 0})
 
 
 class StudentDetailForStaffView(APIView):

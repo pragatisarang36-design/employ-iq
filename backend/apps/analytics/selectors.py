@@ -24,6 +24,30 @@ def interventions(institution):
     return [{"student_id": str(run.student_id), "student_name": run.student.user.full_name, "email": run.student.user.email, "probability_percent": round(float(run.probability) * 100, 2), "readiness": run.readiness, "generated_at": run.created_at} for run in latest_by_student.values() if float(run.probability) < 0.60]
 
 
+def department_readiness(institution):
+    buckets = {}
+    for run in PredictionRun.objects.filter(student__institution=institution).select_related("student").order_by("student_id", "-created_at"):
+        buckets.setdefault(run.student_id, run)
+    departments = {}
+    for run in buckets.values():
+        department = run.student.department or "Unspecified"
+        item = departments.setdefault(department, {"department": department, "students_with_predictions": 0, "probability_total": 0.0, "below_60_count": 0})
+        item["students_with_predictions"] += 1
+        item["probability_total"] += float(run.probability) * 100
+        item["below_60_count"] += int(float(run.probability) < 0.60)
+    return [{**item, "average_probability_percent": round(item.pop("probability_total") / item["students_with_predictions"], 2)} for item in departments.values()]
+
+
+def institutional_skill_deficits(institution):
+    counts = {}
+    for snapshot in __import__("apps.careers.models", fromlist=["SkillGapSnapshot"]).SkillGapSnapshot.objects.filter(student__institution=institution):
+        for gap in snapshot.gaps:
+            name = gap.get("skill")
+            if name:
+                counts[name] = counts.get(name, 0) + 1
+    return [{"skill": skill, "students_with_gap": count} for skill, count in sorted(counts.items(), key=lambda item: (-item[1], item[0]))]
+
+
 def student_dashboard(student):
     """Frontend-friendly single payload.  It never crosses institution boundaries."""
     prediction = PredictionRun.objects.filter(student=student).select_related("model_version").prefetch_related("explanations").first()
