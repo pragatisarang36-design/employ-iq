@@ -1,0 +1,14 @@
+export type User = { id: string; email: string; first_name: string; last_name: string; role: "student" | "tpo" | "admin"; institution: { name: string; slug: string } | null };
+export type Profile = { id: string; cohort: string; department: string; cgpa: string; tenth_percentage: string; twelfth_percentage: string; current_backlogs: number; history_of_backlogs: number; aptitude_score: string; communication_rating: string; extracurricular_score: string; skills: StudentSkill[]; certifications: Certification[]; experiences: Experience[] };
+export type StudentSkill = { id: string; skill: { id: string; name: string; category: string }; proficiency: string; source: string };
+export type Certification = { id: string; name: string; issuer: string; earned_at: string | null };
+export type Experience = { id: string; kind: string; title: string; complexity: string; duration_months: number; metadata: Record<string, unknown> };
+export type Assessment = { id: string; type: string; submitted_at: string; status: string; scores: { id: string; dimension: string; score: string; max_score: string }[] };
+export type Prediction = { id: string; probability_percent: number; baseline_probability_percent: number | null; readiness_score: number; readiness: string; intervention_required: boolean; model_version: string; feature_schema_version: string; generated_at: string; explanation: Explanation[]; strengths: string[]; weaknesses: string[]; disclaimer: string };
+export type Explanation = { feature_key: string; label: string; shap_value: string; direction: "positive" | "negative"; rank: number };
+export type Role = { id: string; slug: string; name: string; support_level: string; description: string };
+export type Gap = { skill: string; current_level: string; target_level: string; priority: string; rationale: string };
+export type GapAnalysis = { id: string; role: Role; gaps: Gap[]; created_at: string };
+export type Roadmap = { id: string; role_slug: string; role_name: string; status: string; generated_at: string; items: { id: string; sequence: number; title: string; description: string; skill_name: string | null; status: "not_started" | "in_progress" | "completed" }[] };
+export type CopilotReply = { answer: string; citations: { document_id: string; title: string; section: string; relevance: number }[]; conversation_id: string; safety_note?: string };
+export type TpoOverview = { total_students: number; students_with_predictions: number; readiness_breakdown: Record<string, number>; average_probability_percent: number };
