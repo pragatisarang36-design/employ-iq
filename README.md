@@ -1,6 +1,6 @@
 # EmployIQ — Phase 1 Foundation
 
-This repository contains the development foundation only: a Django REST API, a React/Vite app, PostgreSQL configuration, and a small API health check. No authentication, ML, RAG, dashboards, or business workflows are implemented in this phase.
+EmployIQ is a hackathon-ready student employability platform. It includes institution-scoped JWT access, profile and assessment capture, a trained placement-readiness prediction API, deterministic career gaps and roadmaps, a grounded career copilot, and TPO dashboard endpoints.
 
 ## Prerequisites
 
@@ -30,6 +30,10 @@ python -m venv .venv
 pip install -r backend/requirements.txt
 cd backend
 python manage.py migrate
+python manage.py seed_careers
+python manage.py seed_knowledge
+# Train the required local ML artifact once (the supplied archive is not committed):
+..\.venv\Scripts\python -m ml.training.train --source-zip "C:\Users\Pragati\Downloads\Student-Campus-Placement-Predictor-main.zip"
 python manage.py runserver
 ```
 
@@ -49,7 +53,13 @@ Copy-Item .env.example .env
 docker compose up --build
 ```
 
-Services are available on PostgreSQL `5432`, API `8000`, and frontend `5173`. The backend waits for PostgreSQL health before applying built-in Django migrations and starting.
+Services are available on PostgreSQL `5432`, API `8000`, and frontend `5173`. The backend waits for PostgreSQL health, migrates, and seeds the curated career/knowledge data. Train the local ML artifact before using `POST /api/v1/predictions/`.
+
+## Demo APIs
+
+- Student: `/api/v1/students/me/profile/`, `/api/v1/assessments/`, `/api/v1/predictions/`, `/api/v1/careers/roles/`, `/api/v1/roadmaps/`, `/api/v1/copilot/ask/`.
+- TPO/Admin: `/api/v1/analytics/overview/` and `/api/v1/analytics/interventions/`.
+- Copilot responses are grounded in ten seeded curated documents and include citations. A Gemini provider can be added later without changing this API contract.
 
 ## Structure
 
