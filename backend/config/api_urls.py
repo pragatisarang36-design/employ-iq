@@ -17,6 +17,7 @@ api_v1_patterns = [
     path("", include("apps.students.urls")),
     path("", include("apps.assessments.urls")),
     path("", include("apps.predictions.urls")),
+    path("", include("apps.careers.urls")),
 ]
 
 urlpatterns = [
@@ -26,4 +27,5 @@ urlpatterns = [
     path("", include("apps.students.urls")),
     path("", include("apps.assessments.urls")),
     path("", include("apps.predictions.urls")),
+    path("", include("apps.careers.urls")),
 ]
