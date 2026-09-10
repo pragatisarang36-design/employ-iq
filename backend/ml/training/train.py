@@ -30,6 +30,28 @@ def load_dataset(zip_path: Path) -> tuple[pd.DataFrame, str]:
     return frame, hashlib.sha256(raw).hexdigest()
 
 
+def synthetic_dataset(rows: int = 1200) -> tuple[pd.DataFrame, str]:
+    """Deterministic, realistic fallback for a self-contained demo artifact."""
+    import numpy as np
+    rng = np.random.default_rng(42)
+    frame = pd.DataFrame({
+        "cgpa": rng.uniform(5.0, 10.0, rows), "tenth_percentage": rng.uniform(45, 98, rows),
+        "twelfth_percentage": rng.uniform(45, 98, rows), "backlogs": rng.integers(0, 5, rows),
+        "history_of_backlogs": rng.integers(0, 8, rows), "technical_skills_count": rng.integers(0, 13, rows),
+        "verified_skills_count": rng.integers(0, 7, rows), "certifications_count": rng.integers(0, 6, rows),
+        "projects_count": rng.integers(0, 7, rows), "internships_count": rng.integers(0, 3, rows),
+        "open_source_contributions": rng.integers(0, 4, rows), "aptitude_score": rng.uniform(25, 100, rows),
+        "communication_rating": rng.uniform(2, 10, rows), "extracurricular_score": rng.uniform(0, 100, rows),
+        "quantitative_score": rng.uniform(20, 100, rows), "logical_score": rng.uniform(20, 100, rows),
+        "coding_score": rng.uniform(15, 100, rows), "communication_score": rng.uniform(25, 100, rows),
+        "interview_score": rng.uniform(15, 100, rows), "presentation_score": rng.uniform(25, 100, rows),
+    })
+    signal = (frame.cgpa * .7 + frame.technical_skills_count * .35 + frame.projects_count * .45 + frame.internships_count * .55 + frame.aptitude_score * .025 + frame.coding_score * .025 + frame.interview_score * .03 - frame.backlogs * .9 - frame.history_of_backlogs * .2 - 7.6)
+    frame["placement_status"] = np.where(signal + rng.normal(0, 0.9, rows) > 0, "Placed", "Not Placed")
+    raw = frame.to_csv(index=False).encode()
+    return frame, hashlib.sha256(raw).hexdigest()
+
+
 def metrics_for(model, x_train, x_test, y_train, y_test):
     model.fit(x_train, y_train)
     predicted = model.predict(x_test)
@@ -39,10 +61,10 @@ def metrics_for(model, x_train, x_test, y_train, y_test):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--source-zip", required=True, type=Path)
+    parser.add_argument("--source-zip", type=Path, help="Optional campus-placement archive; omit to train the deterministic demo dataset.")
     parser.add_argument("--output-dir", default=Path(__file__).resolve().parents[1] / "artifacts", type=Path)
     args = parser.parse_args()
-    frame, checksum = load_dataset(args.source_zip)
+    frame, checksum = load_dataset(args.source_zip) if args.source_zip else synthetic_dataset()
     # A deterministic representative subset keeps offline hackathon training under a minute.
     if len(frame) > 15000:
         frame = frame.sample(n=15000, random_state=42)

@@ -2,6 +2,9 @@ from django.db.models import Count
 
 from apps.predictions.models import PredictionRun
 from apps.students.models import StudentProfile
+from apps.careers.models import StudentRoleSelection
+from apps.careers.services import create_gap_analysis
+from apps.roadmaps.models import Roadmap
 
 
 def overview(institution):
@@ -19,3 +22,34 @@ def interventions(institution):
     for run in PredictionRun.objects.filter(student__institution=institution).select_related("student__user").order_by("student_id", "-created_at"):
         latest_by_student.setdefault(run.student_id, run)
     return [{"student_id": str(run.student_id), "student_name": run.student.user.full_name, "email": run.student.user.email, "probability_percent": round(float(run.probability) * 100, 2), "readiness": run.readiness, "generated_at": run.created_at} for run in latest_by_student.values() if float(run.probability) < 0.60]
+
+
+def student_dashboard(student):
+    """Frontend-friendly single payload.  It never crosses institution boundaries."""
+    prediction = PredictionRun.objects.filter(student=student).select_related("model_version").prefetch_related("explanations").first()
+    selection = StudentRoleSelection.objects.filter(student=student, is_primary=True).select_related("role").first()
+    gaps = []
+    if selection:
+        gap_snapshot = create_gap_analysis(student=student, role=selection.role, prediction_run=prediction)
+        gaps = gap_snapshot.gaps
+    roadmap = Roadmap.objects.filter(student=student, status=Roadmap.Status.ACTIVE).select_related("role").prefetch_related("items__skill").first()
+    assessment_scores = {}
+    for assessment in student.assessments.prefetch_related("scores").all()[:1]:
+        assessment_scores = {score.dimension: float(score.score) for score in assessment.scores.all()}
+    strengths = []
+    weaknesses = []
+    if prediction:
+        for explanation in prediction.explanations.all():
+            (strengths if explanation.direction == "positive" else weaknesses).append(explanation.feature_key.replace("_", " ").title())
+    return {
+        "profile": {"id": str(student.id), "name": student.user.full_name, "department": student.department, "cgpa": float(student.cgpa)},
+        "target_role": {"slug": selection.role.slug, "name": selection.role.name} if selection else None,
+        "prediction": {"probability_percent": round(float(prediction.probability) * 100, 2), "readiness_score": round(float(prediction.probability) * 100, 2), "readiness": prediction.readiness, "generated_at": prediction.created_at} if prediction else None,
+        "assessment_scores": assessment_scores,
+        "skill_count": student.skills.count(),
+        "strongest_skills": strengths,
+        "weakest_skills": weaknesses,
+        "skill_gaps": gaps,
+        "roadmap": {"id": str(roadmap.id), "role_slug": roadmap.role.slug, "items": [{"id": str(item.id), "sequence": item.sequence, "title": item.title, "status": item.status} for item in roadmap.items.all()]} if roadmap else None,
+        "recommended_actions": [f"Improve {gap['skill']} ({gap['priority']} priority)." for gap in gaps[:3]] or ["Create a prediction and choose a target career role to personalize your next steps."],
+    }

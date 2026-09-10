@@ -12,11 +12,18 @@ from apps.accounts.services import record_audit_event
 from .selectors import get_student_profile_by_id, get_student_profile_by_user
 from .serializers import (
     FeatureSnapshotSerializer,
+    SkillCreateSerializer,
+    StudentCertificationSerializer,
+    StudentExperienceSerializer,
     StudentProfileDetailSerializer,
+    StudentSkillSerializer,
     StudentProfileUpdateSerializer,
 )
 from .services import (
     build_feature_snapshot,
+    add_or_update_student_skill,
+    add_student_certification,
+    add_student_experience,
     get_or_create_student_profile,
     update_student_profile,
 )
@@ -65,6 +72,49 @@ class StudentFeatureSnapshotView(APIView):
         snapshot_data = build_feature_snapshot(profile)
         serializer = FeatureSnapshotSerializer(snapshot_data)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class StudentSkillListCreateView(APIView):
+    permission_classes = [IsStudent]
+
+    def get(self, request):
+        profile = get_or_create_student_profile(request.user)
+        return Response(StudentSkillSerializer(profile.skills.select_related("skill"), many=True).data)
+
+    def post(self, request):
+        serializer = SkillCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        profile = get_or_create_student_profile(request.user)
+        student_skill = add_or_update_student_skill(profile=profile, **serializer.validated_data)
+        return Response(StudentSkillSerializer(student_skill).data, status=status.HTTP_201_CREATED)
+
+
+class StudentCertificationListCreateView(APIView):
+    permission_classes = [IsStudent]
+
+    def get(self, request):
+        profile = get_or_create_student_profile(request.user)
+        return Response(StudentCertificationSerializer(profile.certifications.all(), many=True).data)
+
+    def post(self, request):
+        serializer = StudentCertificationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        certification = add_student_certification(profile=get_or_create_student_profile(request.user), **serializer.validated_data)
+        return Response(StudentCertificationSerializer(certification).data, status=status.HTTP_201_CREATED)
+
+
+class StudentExperienceListCreateView(APIView):
+    permission_classes = [IsStudent]
+
+    def get(self, request):
+        profile = get_or_create_student_profile(request.user)
+        return Response(StudentExperienceSerializer(profile.experiences.all(), many=True).data)
+
+    def post(self, request):
+        serializer = StudentExperienceSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        experience = add_student_experience(profile=get_or_create_student_profile(request.user), **serializer.validated_data)
+        return Response(StudentExperienceSerializer(experience).data, status=status.HTTP_201_CREATED)
 
 
 class StudentDetailForStaffView(APIView):

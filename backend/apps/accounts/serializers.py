@@ -145,8 +145,10 @@ class RegisterSerializer(serializers.ModelSerializer):
         read_only_fields = ["id"]
 
     def validate_role(self, value):
-        if value not in (UserRole.STUDENT, UserRole.TPO, UserRole.ADMIN):
-            raise serializers.ValidationError("Invalid role choice.")
+        # Public registration must never be a privilege-escalation route. TPOs
+        # and institution admins are provisioned by an authorized admin.
+        if value != UserRole.STUDENT:
+            raise serializers.ValidationError("Public registration is available for students only.")
         return value
 
     def validate(self, attrs):

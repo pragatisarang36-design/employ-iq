@@ -49,5 +49,13 @@ def ask_copilot(*, student, question, role=None, conversation_id=None):
     return conversation, answer, citations
 
 
+def recommended_actions(student, role):
+    if not role:
+        return []
+    from apps.careers.services import create_gap_analysis
+    gap_snapshot = create_gap_analysis(student=student, role=role)
+    return [f"Work on {gap['skill']} ({gap['priority']} priority)." for gap in gap_snapshot.gaps[:3]]
+
+
 def checksum(content):
     return hashlib.sha256(content.encode("utf-8")).hexdigest()

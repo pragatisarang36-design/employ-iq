@@ -44,6 +44,14 @@ class StudentExperienceSerializer(serializers.ModelSerializer):
         fields = ["id", "kind", "title", "complexity", "duration_months", "metadata"]
 
 
+class SkillCreateSerializer(serializers.Serializer):
+    """Adds a catalogue skill to the authenticated student's profile."""
+
+    skill_id = serializers.PrimaryKeyRelatedField(queryset=Skill.objects.all(), source="skill")
+    proficiency = serializers.ChoiceField(choices=StudentSkill.Proficiency.choices, default=StudentSkill.Proficiency.BEGINNER)
+    source = serializers.ChoiceField(choices=StudentSkill.Source.choices, default=StudentSkill.Source.SELF_REPORTED)
+
+
 class StudentProfileDetailSerializer(serializers.ModelSerializer):
     user = UserMeSerializer(read_only=True)
     institution = InstitutionSerializer(read_only=True)

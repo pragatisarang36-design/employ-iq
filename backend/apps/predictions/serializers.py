@@ -24,11 +24,17 @@ class PredictionSerializer(serializers.ModelSerializer):
     generated_at = serializers.DateTimeField(source="created_at", read_only=True)
     explanation = PredictionExplanationSerializer(source="explanations", many=True, read_only=True)
     disclaimer = serializers.SerializerMethodField()
+    strengths = serializers.SerializerMethodField()
+    weaknesses = serializers.SerializerMethodField()
+    readiness_score = serializers.SerializerMethodField()
 
     class Meta:
         model = PredictionRun
-        fields = ["id", "probability_percent", "readiness", "intervention_required", "model_version", "feature_schema_version", "generated_at", "explanation", "disclaimer"]
+        fields = ["id", "probability_percent", "readiness_score", "readiness", "intervention_required", "model_version", "feature_schema_version", "generated_at", "explanation", "strengths", "weaknesses", "disclaimer"]
 
     def get_probability_percent(self, obj): return round(float(obj.probability) * 100, 2)
     def get_intervention_required(self, obj): return float(obj.probability) < 0.60
     def get_disclaimer(self, obj): return "This readiness score is decision support, not a guarantee of placement."
+    def get_readiness_score(self, obj): return self.get_probability_percent(obj)
+    def get_strengths(self, obj): return [FEATURE_LABELS.get(item.feature_key, item.feature_key) for item in obj.explanations.all() if item.direction == "positive"]
+    def get_weaknesses(self, obj): return [FEATURE_LABELS.get(item.feature_key, item.feature_key) for item in obj.explanations.all() if item.direction == "negative"]

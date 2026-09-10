@@ -160,6 +160,10 @@ class AuthEndpointTests(TestCase):
         self.assertEqual(dup_res.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(dup_res.data["code"], "validation_error")
 
+    def test_public_registration_cannot_create_staff_roles(self):
+        response = self.client.post("/api/v1/auth/register/", {"email": "tpo@tech.edu", "password": "StrongPassword999!", "institution_slug": "tech-uni", "role": "tpo"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_health_check_endpoints(self):
         # Base /api/health/ used by React shell
         res_legacy = self.client.get("/api/health/")
@@ -242,5 +246,4 @@ class AuthEndpointTests(TestCase):
         )
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(res.data["code"], "validation_error")
-
 
