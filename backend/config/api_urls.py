@@ -19,6 +19,7 @@ api_v1_patterns = [
     path("", include("apps.predictions.urls")),
     path("", include("apps.careers.urls")),
     path("", include("apps.rag.urls")),
+    path("", include("apps.roadmaps.urls")),
 ]
 
 urlpatterns = [
@@ -30,4 +31,5 @@ urlpatterns = [
     path("", include("apps.predictions.urls")),
     path("", include("apps.careers.urls")),
     path("", include("apps.rag.urls")),
+    path("", include("apps.roadmaps.urls")),
 ]
