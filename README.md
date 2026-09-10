@@ -32,8 +32,10 @@ cd backend
 python manage.py migrate
 python manage.py seed_careers
 python manage.py seed_knowledge
-# Train the required local ML artifact once (the supplied archive is not committed):
-..\.venv\Scripts\python -m ml.training.train --source-zip "C:\Users\Pragati\Downloads\Student-Campus-Placement-Predictor-main.zip"
+# Train or refresh the local ML artifact (uses the deterministic demo dataset by default):
+..\.venv\Scripts\python -m ml.training.train
+# Optional: train from a compatible campus-placement archive instead:
+# ..\.venv\Scripts\python -m ml.training.train --source-zip "C:\path\to\placement-dataset.zip"
 python manage.py runserver
 ```
 
