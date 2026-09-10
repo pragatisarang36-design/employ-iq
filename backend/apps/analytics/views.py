@@ -1,3 +1,4 @@
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from apps.accounts.permissions import IsStudent, IsTPOOrAdmin
@@ -10,7 +11,14 @@ class AnalyticsOverviewView(APIView):
 
 class InterventionListView(APIView):
     permission_classes = [IsTPOOrAdmin]
-    def get(self, request): return Response({"count": len(interventions(request.user.institution)), "results": interventions(request.user.institution)})
+
+    def get(self, request):
+        paginator = PageNumberPagination()
+        paginator.page_size = 20
+        paginator.page_size_query_param = "page_size"
+        paginator.max_page_size = 100
+        page = paginator.paginate_queryset(interventions(request.user.institution), request, view=self)
+        return paginator.get_paginated_response(page)
 
 
 class DepartmentReadinessView(APIView):

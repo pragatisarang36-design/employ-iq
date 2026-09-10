@@ -9,8 +9,10 @@ from pathlib import Path
 import joblib
 import pandas as pd
 from lightgbm import LGBMClassifier
+from sklearn.calibration import calibration_curve
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
+from sklearn.metrics import accuracy_score, brier_score_loss, confusion_matrix, f1_score, precision_score, recall_score, roc_auc_score
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
@@ -56,7 +58,17 @@ def metrics_for(model, x_train, x_test, y_train, y_test):
     model.fit(x_train, y_train)
     predicted = model.predict(x_test)
     probability = model.predict_proba(x_test)[:, 1]
-    return {"model": model, "metrics": {"accuracy": round(accuracy_score(y_test, predicted), 4), "precision": round(precision_score(y_test, predicted, zero_division=0), 4), "recall": round(recall_score(y_test, predicted, zero_division=0), 4), "f1": round(f1_score(y_test, predicted, zero_division=0), 4), "roc_auc": round(roc_auc_score(y_test, probability), 4)}}
+    fraction_positive, mean_predicted = calibration_curve(y_test, probability, n_bins=5, strategy="uniform")
+    return {"model": model, "metrics": {
+        "accuracy": round(accuracy_score(y_test, predicted), 4),
+        "precision": round(precision_score(y_test, predicted, zero_division=0), 4),
+        "recall": round(recall_score(y_test, predicted, zero_division=0), 4),
+        "f1": round(f1_score(y_test, predicted, zero_division=0), 4),
+        "roc_auc": round(roc_auc_score(y_test, probability), 4),
+        "brier_score": round(brier_score_loss(y_test, probability), 4),
+        "confusion_matrix": confusion_matrix(y_test, predicted).tolist(),
+        "calibration_curve": {"mean_predicted_value": [round(float(value), 4) for value in mean_predicted], "fraction_of_positives": [round(float(value), 4) for value in fraction_positive]},
+    }}
 
 
 def main():
@@ -74,13 +86,14 @@ def main():
     candidates = {
         "lightgbm": LGBMClassifier(n_estimators=120, learning_rate=0.05, num_leaves=15, min_child_samples=12, random_state=42, n_jobs=1, verbosity=-1),
         "logistic_regression": Pipeline([("scaler", StandardScaler()), ("classifier", LogisticRegression(max_iter=2000, random_state=42))]),
+        "random_forest": RandomForestClassifier(n_estimators=150, min_samples_leaf=4, n_jobs=1, random_state=42),
     }
     results = {name: metrics_for(model, x_train, x_test, y_train, y_test) for name, model in candidates.items()}
     # The documented production candidate is LightGBM; metrics for the logistic
     # baseline remain in the artifact for transparent comparison.
     selected_name = "lightgbm"
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    artifact = {"version": "placement-readiness-lightgbm-v2", "algorithm": selected_name, "primary_model": results[selected_name]["model"], "baseline_model": results["logistic_regression"]["model"], "feature_schema_version": FEATURE_SCHEMA_VERSION, "feature_names": list(FEATURE_NAMES), "metrics": {name: result["metrics"] for name, result in results.items()}, "dataset_checksum": checksum, "trained_at": datetime.now(timezone.utc).isoformat()}
+    artifact = {"version": "placement-readiness-lightgbm-v3", "algorithm": selected_name, "primary_model": results[selected_name]["model"], "baseline_model": results["logistic_regression"]["model"], "feature_schema_version": FEATURE_SCHEMA_VERSION, "feature_names": list(FEATURE_NAMES), "metrics": {name: result["metrics"] for name, result in results.items()}, "dataset_checksum": checksum, "trained_at": datetime.now(timezone.utc).isoformat()}
     joblib.dump(artifact, args.output_dir / "placement_readiness_v1.joblib")
     (args.output_dir / "metrics.json").write_text(json.dumps({key: value for key, value in artifact.items() if key not in {"primary_model", "baseline_model"}}, indent=2), encoding="utf-8")
     print(json.dumps({"selected": selected_name, "metrics": artifact["metrics"]}, indent=2))

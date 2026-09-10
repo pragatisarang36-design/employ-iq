@@ -2,11 +2,11 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.accounts.permissions import IsStudent
+from apps.accounts.permissions import IsStudent, IsTPOOrAdmin
 from apps.students.services import get_or_create_student_profile
 from ml.inference import ModelUnavailableError
 
-from .selectors import get_latest_prediction, get_prediction_for_student
+from .selectors import get_latest_prediction, get_prediction_for_institution, get_prediction_for_student
 from .serializers import PredictionSerializer
 from .services import create_prediction
 
@@ -33,10 +33,13 @@ class LatestPredictionView(APIView):
 
 
 class PredictionDetailView(APIView):
-    permission_classes = [IsStudent]
+    permission_classes = [IsStudent | IsTPOOrAdmin]
 
     def get(self, request, prediction_id):
-        prediction = get_prediction_for_student(prediction_id, get_or_create_student_profile(request.user))
+        if request.user.role == "student":
+            prediction = get_prediction_for_student(prediction_id, get_or_create_student_profile(request.user))
+        else:
+            prediction = get_prediction_for_institution(prediction_id, request.user.institution)
         if not prediction:
             return Response({"code": "not_found", "message": "Prediction not found."}, status=status.HTTP_404_NOT_FOUND)
         return Response(PredictionSerializer(prediction).data)
