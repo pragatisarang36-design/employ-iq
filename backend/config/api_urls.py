@@ -14,10 +14,14 @@ def health_check(request):
 api_v1_patterns = [
     path("health/", health_check, name="health-check-v1"),
     path("", include("apps.accounts.urls")),
+    path("", include("apps.students.urls")),
+    path("", include("apps.assessments.urls")),
 ]
 
 urlpatterns = [
     path("health/", health_check, name="health-check"),
     path("v1/", include((api_v1_patterns, "v1"))),
     path("", include("apps.accounts.urls")),
+    path("", include("apps.students.urls")),
+    path("", include("apps.assessments.urls")),
 ]
