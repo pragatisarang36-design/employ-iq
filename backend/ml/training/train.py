@@ -1,0 +1,71 @@
+"""Train and register the hackathon readiness model from the supplied CSV archive."""
+import argparse
+import hashlib
+import json
+import zipfile
+from datetime import datetime, timezone
+from pathlib import Path
+
+import joblib
+import pandas as pd
+from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+
+from ml.feature_schema import FEATURE_NAMES, FEATURE_SCHEMA_VERSION
+
+DATA_COLUMNS = list(FEATURE_NAMES)
+SOURCE_COLUMN_MAP = {"backlogs": "backlogs"}
+
+
+def load_dataset(zip_path: Path) -> tuple[pd.DataFrame, str]:
+    with zipfile.ZipFile(zip_path) as archive:
+        csv_name = next(name for name in archive.namelist() if name.endswith("placement.csv"))
+        raw = archive.read(csv_name)
+    frame = pd.read_csv(__import__("io").BytesIO(raw))
+    frame = frame.rename(columns={"communication_skill_score": "communication_score", "logical_reasoning_score": "logical_score", "coding_skill_score": "coding_score"})
+    return frame, hashlib.sha256(raw).hexdigest()
+
+
+def metrics_for(model, x_train, x_test, y_train, y_test):
+    model.fit(x_train, y_train)
+    predicted = model.predict(x_test)
+    probability = model.predict_proba(x_test)[:, 1]
+    return {"model": model, "metrics": {"accuracy": round(accuracy_score(y_test, predicted), 4), "precision": round(precision_score(y_test, predicted, zero_division=0), 4), "recall": round(recall_score(y_test, predicted, zero_division=0), 4), "f1": round(f1_score(y_test, predicted, zero_division=0), 4), "roc_auc": round(roc_auc_score(y_test, probability), 4)}}
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--source-zip", required=True, type=Path)
+    parser.add_argument("--output-dir", default=Path(__file__).resolve().parents[1] / "artifacts", type=Path)
+    args = parser.parse_args()
+    frame, checksum = load_dataset(args.source_zip)
+    # A deterministic representative subset keeps offline hackathon training under a minute.
+    if len(frame) > 15000:
+        frame = frame.sample(n=15000, random_state=42)
+    x = frame[DATA_COLUMNS].astype(float)
+    y = (frame["placement_status"] == "Placed").astype(int)
+    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=42, stratify=y)
+    candidates = {
+        "logistic_regression": Pipeline([("scaler", StandardScaler()), ("classifier", LogisticRegression(max_iter=2000, random_state=42))]),
+        "random_forest": RandomForestClassifier(n_estimators=75, min_samples_leaf=4, n_jobs=-1, random_state=42),
+        "gradient_boosting": GradientBoostingClassifier(n_estimators=75, random_state=42),
+    }
+    results = {name: metrics_for(model, x_train, x_test, y_train, y_test) for name, model in candidates.items()}
+    # Prefer the explainable linear model when its ROC-AUC remains competitive (within 0.02).
+    best_auc = max(result["metrics"]["roc_auc"] for result in results.values())
+    selected_name = "logistic_regression" if results["logistic_regression"]["metrics"]["roc_auc"] >= best_auc - 0.02 else max(results, key=lambda name: results[name]["metrics"]["roc_auc"])
+    if selected_name != "logistic_regression":
+        raise RuntimeError("Dataset selected a non-linear model; update inference explainability before promotion.")
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    artifact = {"version": "placement-readiness-v1", "algorithm": selected_name, "feature_schema_version": FEATURE_SCHEMA_VERSION, "feature_names": list(FEATURE_NAMES), "pipeline": results[selected_name]["model"], "metrics": {name: result["metrics"] for name, result in results.items()}, "dataset_checksum": checksum, "trained_at": datetime.now(timezone.utc).isoformat()}
+    joblib.dump(artifact, args.output_dir / "placement_readiness_v1.joblib")
+    (args.output_dir / "metrics.json").write_text(json.dumps({key: value for key, value in artifact.items() if key != "pipeline"}, indent=2), encoding="utf-8")
+    print(json.dumps({"selected": selected_name, "metrics": artifact["metrics"]}, indent=2))
+
+
+if __name__ == "__main__":
+    main()
