@@ -31,6 +31,28 @@ api.interceptors.response.use(undefined, async (error: AxiosError) => {
 });
 
 export type ApiError = { code?: string; message?: string; details?: Record<string, string[] | string> };
-export function errorMessage(error: unknown) { const data = (error as AxiosError<ApiError>)?.response?.data; return data?.message ?? "Unable to complete that request. Please try again."; }
+/**
+ * Surfaces the API's per-field `details` rather than the generic
+ * "Invalid input data." wrapper, and separates a failed round-trip (CORS,
+ * offline, cold start) from a real validation response.
+ */
+export function errorMessage(error: unknown) {
+  const axiosError = error as AxiosError<ApiError>;
+  const response = axiosError?.response;
+  if (!response) {
+    return axiosError?.code === "ECONNABORTED"
+      ? "The API took too long to respond. It may be waking up — try again in a moment."
+      : "Cannot reach the EmployIQ API. Check your connection, then try again.";
+  }
+  const details = response.data?.details;
+  if (details && typeof details === "object") {
+    const parts = Object.entries(details).map(([field, value]) => {
+      const text = Array.isArray(value) ? value.join(" ") : String(value);
+      return field === "non_field_errors" || field === "detail" ? text : `${field.replaceAll("_", " ")}: ${text}`;
+    });
+    if (parts.length) return parts.join(" · ");
+  }
+  return response.data?.message ?? "Unable to complete that request. Please try again.";
+}
 export type HealthStatus = { status: string; service: string };
 export const getHealth = async () => (await api.get<HealthStatus>("/health/")).data;
